@@ -3,14 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AssemblyAI JSON Transcription Editor v6.0</title>
+    <title>SAAITE (AssemblyAI JSON Editor)</title>
     <style>
         :root { --bg: #f8f9fa; --border: #ced4da; --primary: #0d6efd; --success: #198754; --warning: #ffc107; --danger: #dc3545; --info: #0dcaf0; --tab-bg: #e9ecef; }
         body { font-family: system-ui, -apple-system, sans-serif; max-width: 1300px; margin: 15px auto; padding: 0 15px; background: var(--bg); color: #212529; }
         
         /* Layout Header + Tabs Optimization */
-        .top-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--primary); flex-wrap: wrap; margin-bottom: 15px; gap: 10px; }
-        .top-header h1 { margin: 0; padding-bottom: 5px; font-size: 22px; color: #2c3e50; }
+        .top-header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid var(--primary); margin-bottom: 15px; flex-wrap: wrap-reverse; gap: 10px; padding-top: 10px; }
+        .header-tools { display: flex; align-items: center; gap: 10px; padding-bottom: 5px; }
+        .header-tools h1 { margin: 0; font-size: 24px; color: #2c3e50; cursor: help; }
         
         .tabs { display: flex; margin-bottom: -2px; }
         .tab-btn { padding: 8px 16px; cursor: pointer; background: var(--tab-bg); border: 1px solid var(--border); border-bottom: none; border-radius: 6px 6px 0 0; margin-right: 5px; font-weight: bold; color: #495057; font-size: 14px; }
@@ -23,7 +24,7 @@
         .flex-cols { display: flex; gap: 20px; flex-wrap: wrap; }
         .col { flex: 1; min-width: 300px; }
         
-        textarea { width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid var(--border); border-radius: 4px; font-family: monospace; }
+        textarea { width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid var(--border); border-radius: 4px; font-family: monospace; resize: vertical; }
         input[type="text"], input[type="number"], select { padding: 5px 10px; border: 1px solid var(--border); border-radius: 4px; background: white; }
         
         button { padding: 5px 12px; cursor: pointer; border: 1px solid transparent; border-radius: 4px; font-weight: 500; background: var(--primary); color: white; }
@@ -43,7 +44,7 @@
         #inline-editor { position: absolute; background: white; border: 1px solid #333; padding: 10px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); display: none; z-index: 1000; width: 340px; }
         .inline-controls { display: flex; gap: 5px; margin-top: 8px; flex-wrap: wrap; }
 
-        /* Stable Words Layout (Anti-flicker) */
+        /* Stable Words Layout */
         .word { cursor: pointer; border-radius: 3px; padding: 1px 2px; transition: 0.1s; position: relative; border: 2px solid transparent; display: inline-block; }
         .word:hover { background-color: #e9ecef; }
         .conf-08 { background-color: #fff3cd; } 
@@ -51,8 +52,6 @@
         .conf-01 { background-color: #dc3545; color: white; } 
         .mark-highlight { background-color: #cfe2ff; color: #084298; box-shadow: 0 0 0 2px #0d6efd; font-weight: bold; }
         .sub-highlight { background-color: #e0cffc; color: #520dc2; border-bottom: 2px solid #6f42c1; }
-        
-        /* Audio Tracking - Changes color/style but NOT size */
         .audio-current-word { border: 2px dashed #0d6efd !important; background-color: #e0f2fe; font-weight: bold; }
 
         .added-text { color: var(--danger); font-weight: bold; margin: 0 4px; }
@@ -66,17 +65,27 @@
         
         .speaker-filters { display: inline-flex; gap: 10px; flex-wrap: wrap; border: 1px dashed var(--border); padding: 4px 8px; border-radius: 4px; background: #fff; }
         .file-box { display: flex; gap: 20px; border: 1px dashed var(--primary); padding: 10px; border-radius: 4px; background: #f0f7ff; }
-        .file-col { flex: 1; display: flex; flex-direction: column; gap: 6px; min-width: 250px; }
+        .file-col { flex: 1; display: flex; flex-direction: column; gap: 6px; min-width: 320px; }
+        
+        .loaded-label { font-size: 0.85em; font-weight: 500; color: var(--success); }
+        .loaded-label.missing { color: var(--danger); }
+        .v-divider { border-left: 2px solid var(--border); height: 20px; margin: 0 5px; }
     </style>
 </head>
 <body>
 
     <div class="top-header">
-        <h1>AssemblyAI JSON Editor v6.0</h1>
         <div class="tabs">
             <div class="tab-btn active" onclick="openTab('tab-load', this)">1. Load & Save</div>
             <div class="tab-btn" onclick="openTab('tab-view', this)">2. View & Filters</div>
             <div class="tab-btn" onclick="openTab('tab-replace', this)">3. Search & Replace</div>
+        </div>
+        <div class="header-tools">
+            <h1 title="Simple AssemblyAI Transcription Editor">SAAITE</h1>
+            <div class="v-divider"></div>
+            <button onclick="undo()" title="Undo global text changes">⟲</button>
+            <button onclick="redo()" title="Redo global text changes">⟳</button>
+            <span id="undoRedoState" style="font-weight:bold; font-size:14px; color:#495057;">0 / 0 changes</span>
         </div>
     </div>
 
@@ -84,8 +93,16 @@
         <div class="file-box">
             <div class="file-col">
                 <strong>Open one:</strong>
-                <div class="row" style="margin:0;"><label style="width:50px;">JSON:</label><input type="file" id="jsonFilePick" accept=".json" onchange="handleSingleFile('json')"></div>
-                <div class="row" style="margin:0;"><label style="width:50px;">Audio:</label><input type="file" id="audioFilePick" accept="audio/*" onchange="handleSingleFile('audio')"></div>
+                <div class="row" style="margin:0;">
+                    <label style="width:50px;">JSON:</label>
+                    <input type="file" id="jsonFilePick" accept=".json" onchange="handleSingleFile('json')">
+                    <span id="labelJsonFile" class="loaded-label missing">[Missing]</span>
+                </div>
+                <div class="row" style="margin:0;">
+                    <label style="width:50px;">Audio:</label>
+                    <input type="file" id="audioFilePick" accept="audio/*" onchange="handleSingleFile('audio')">
+                    <span id="labelAudioFile" class="loaded-label missing">[Missing]</span>
+                </div>
             </div>
             <div class="file-col" style="border-left: 2px solid var(--border); padding-left: 20px;">
                 <strong>Open many (Bulk Folder Load):</strong>
@@ -105,9 +122,7 @@
         <div class="row" style="margin-top:8px;">
             <button onclick="loadJsonData()" class="btn-success">Load Raw Buffer Data</button>
             <span id="wordCountInfo" style="margin-left:auto; font-weight:bold;">Words: 0</span>
-        </div>
-        <hr style="border:0; border-top:1px solid var(--border); margin:12px 0;">
-        <div class="row">
+            <div class="v-divider"></div>
             <button onclick="copyText()" class="btn-info">📋 Copy Final Text</button>
             <button onclick="downloadText()" class="btn-success">💾 Download .txt File</button>
         </div>
@@ -118,7 +133,7 @@
             <input type="checkbox" id="showSpeakerTimesCheck" onchange="renderView()">
             <label><strong>Show Speaker Times & Segments</strong></label>
             
-            <span style="margin-left:15px; margin-right:5px;"><strong>Hide speaker:</strong></span>
+            <span style="margin-left:15px; margin-right:5px;">Hide speaker:</span>
             <div id="speakerFiltersContainer" class="speaker-filters">
                 <em style="color:#6c757d; font-size: 0.85em;">Load JSON first</em>
             </div>
@@ -126,22 +141,23 @@
         <hr style="border:0; border-top:1px solid var(--border); margin:10px 0;">
         <div class="row">
             <input type="checkbox" id="unclearItemCheck" onchange="renderView()">
-            <label>Add text</label>
+            <label><strong>Add text</strong></label>
             <input type="text" id="unclearItemText" value="[UNCLEAR - HH:MM:SS]">
             <label>after words with confidence lower than</label>
             <input type="number" id="confidenceLimit" value="0.5" step="0.1" max="1" style="width:50px;" onchange="renderView()">
-        </div>
-        <div class="row">
+            
+            <div class="v-divider" style="margin: 0 15px;"></div>
+            
             <input type="checkbox" id="markLowConfCheck" checked onchange="renderView()">
-            <label>Mark confidence below</label>
+            <label><strong>Mark confidence below</strong></label>
             <input type="number" id="markLowConfLimit" value="0.9" step="0.1" style="width:50px;" onchange="renderView()">
         </div>
         <hr style="border:0; border-top:1px solid var(--border); margin:10px 0;">
         <div class="row">
-            <label>Replace selected block with:</label>
+            <label><strong>Replace selected block with:</strong></label>
             <input type="text" id="blockReplaceText" value="[UNCLEAR from HH:MM:SS to HH:MM:SS]" style="width:280px;">
             <button onclick="replaceSelectedBlock()" class="btn-danger">Replace Selected Block</button>
-            <span style="font-size:0.85em; color:#6c757d;">*(Mark start/end word via inline dbl-click editor)</span>
+            <span id="blockStatusText" style="font-size:0.85em; color:#6c757d; font-weight:bold; margin-left: 5px;">*(Mark start/end word via inline dbl-click editor)</span>
         </div>
     </div>
 
@@ -149,10 +165,6 @@
         <div class="flex-cols">
             <div class="col">
                 <div class="row"><strong>Quick Find & Replace:</strong></div>
-                <div class="row">
-                    <button onclick="undo()" title="Undo text changes">⟲ Undo</button>
-                    <button onclick="redo()" title="Redo text changes">⟳ Redo</button>
-                </div>
                 <div class="row" style="margin-top:10px;">
                     <label style="width:80px;">Find:</label>
                     <input type="text" id="findInput" placeholder="Mark word..." oninput="renderView()">
@@ -170,7 +182,7 @@
             
             <div class="col" style="display:flex; flex-direction:column;">
                 <div class="row"><strong>Bulk Dictionary (old > new):</strong></div>
-                <textarea id="substitutionsInput" rows="7" placeholder="wordA > wordB&#10;wordC > wordD" oninput="renderView()" style="flex-grow:1; min-height:110px;"></textarea>
+                <textarea id="substitutionsInput" rows="3" placeholder="wordA > wordB&#10;wordC > wordD" oninput="renderView()" style="flex-grow:1;"></textarea>
                 <div class="row" style="margin-top:5px;">
                     <input type="checkbox" id="markSubstitutionsCheck" checked onchange="renderView()"> <label>Mark Dictionary Items (Violet)</label>
                     <button onclick="replaceAllSubstitutions()" class="btn-danger" style="margin-left:auto;">Run Dictionary</button>
@@ -234,25 +246,57 @@
         }
         function deepCopy(arr) { return JSON.parse(JSON.stringify(arr)); }
 
+        // --- STATE MANAGEMENT ---
         function saveState() {
             historyStack.push(deepCopy(wordsData));
             redoStack = [];
             isDirty = true;
             document.getElementById('dirtyWarning').style.display = 'inline';
+            updateUndoRedoUI();
         }
 
         function undo() {
-            if (historyStack.length) { redoStack.push(deepCopy(wordsData)); wordsData = historyStack.pop(); resetBlockMarks(); renderView(); }
+            if (historyStack.length) { 
+                redoStack.push(deepCopy(wordsData)); 
+                wordsData = historyStack.pop(); 
+                resetBlockMarks(); 
+                renderView(); 
+                updateUndoRedoUI();
+            }
         }
         function redo() {
-            if (redoStack.length) { historyStack.push(deepCopy(wordsData)); wordsData = redoStack.pop(); resetBlockMarks(); renderView(); }
+            if (redoStack.length) { 
+                historyStack.push(deepCopy(wordsData)); 
+                wordsData = redoStack.pop(); 
+                resetBlockMarks(); 
+                renderView(); 
+                updateUndoRedoUI();
+            }
+        }
+        
+        function updateUndoRedoUI() {
+            let current = historyStack.length;
+            let total = current + redoStack.length;
+            document.getElementById('undoRedoState').innerText = `${current} / ${total} changes`;
         }
 
         // --- FILE PROCESSING ---
+        function setLabelStatus(type, name) {
+            const el = document.getElementById(type === 'json' ? 'labelJsonFile' : 'labelAudioFile');
+            if(name) {
+                el.innerText = `[${name}]`;
+                el.classList.remove('missing');
+            } else {
+                el.innerText = `[Missing]`;
+                el.classList.add('missing');
+            }
+        }
+
         function handleSingleFile(type) {
             if (type === 'json') {
                 const file = document.getElementById('jsonFilePick').files[0];
                 if (!file) return;
+                setLabelStatus('json', file.name);
                 const reader = new FileReader();
                 reader.onload = function(e) {
                     document.getElementById('jsonInput').value = e.target.result;
@@ -261,7 +305,10 @@
                 reader.readAsText(file);
             } else if (type === 'audio') {
                 const file = document.getElementById('audioFilePick').files[0];
-                if (file) loadAudioSource(file);
+                if (file) {
+                    setLabelStatus('audio', file.name);
+                    loadAudioSource(file);
+                }
             }
         }
 
@@ -301,6 +348,9 @@
             
             let pair = bulkFileMap[baseName];
             
+            setLabelStatus('json', pair.json ? pair.json.name : null);
+            setLabelStatus('audio', pair.audio ? pair.audio.name : null);
+            
             const reader = new FileReader();
             reader.onload = function(e) {
                 document.getElementById('jsonInput').value = e.target.result;
@@ -322,6 +372,9 @@
             try {
                 wordsData = JSON.parse(document.getElementById('jsonInput').value).words;
                 isDirty = false;
+                historyStack = [];
+                redoStack = [];
+                updateUndoRedoUI();
                 resetBlockMarks();
                 document.getElementById('dirtyWarning').style.display = 'none';
                 document.getElementById('wordCountInfo').innerText = "Words: " + wordsData.length;
@@ -367,18 +420,13 @@
             const dur = audio.duration || 0;
             document.getElementById('audioTimeTracker').innerText = formatTime(cur * 1000) + " / " + formatTime(dur * 1000);
             
-            if(!isDraggingSlider) {
-                document.getElementById('audioSlider').value = cur;
-            }
+            if(!isDraggingSlider) { document.getElementById('audioSlider').value = cur; }
             syncWordHighlight(cur * 1000);
         });
 
         let isDraggingSlider = false;
         function handleSliderInput() { isDraggingSlider = true; }
-        function handleSliderChange() {
-            audio.currentTime = document.getElementById('audioSlider').value;
-            isDraggingSlider = false;
-        }
+        function handleSliderChange() { audio.currentTime = document.getElementById('audioSlider').value; isDraggingSlider = false; }
 
         function skipTime(secs) {
             if(!audio.src) return;
@@ -408,7 +456,6 @@
             }
         }
 
-        // Word Click Seeks Audio
         document.getElementById('html-viewer').addEventListener('click', (e) => {
             const wordEl = e.target.closest('.word');
             if (!wordEl || e.detail === 2) return;
@@ -419,10 +466,8 @@
             }
         });
 
-        // --- KEYBOARD LISTENERS ---
         window.addEventListener('keydown', (e) => {
             if(["INPUT", "TEXTAREA"].includes(document.activeElement.tagName)) return;
-
             if(e.code === "Space") { e.preventDefault(); togglePlay(); } 
             else if(e.code === "ArrowLeft") { e.preventDefault(); skipTime(-5); } 
             else if(e.code === "ArrowRight") { e.preventDefault(); skipTime(5); } 
@@ -501,6 +546,23 @@
         }
 
         // --- BLOCK MANAGEMENT ---
+        function updateBlockStatusUI() {
+            const el = document.getElementById('blockStatusText');
+            if (blockStartIndex !== -1 && blockEndIndex !== -1) {
+                el.innerText = "*(Ready: Start and End marked)";
+                el.style.color = "var(--success)";
+            } else if (blockStartIndex !== -1) {
+                el.innerText = "*(Start marked. Please mark End...)";
+                el.style.color = "#d63384"; 
+            } else if (blockEndIndex !== -1) {
+                el.innerText = "*(End marked. Please mark Start...)";
+                el.style.color = "#d63384";
+            } else {
+                el.innerText = "*(Mark start/end word via inline dbl-click editor)";
+                el.style.color = "#6c757d";
+            }
+        }
+
         function markBlockBoundary(type) {
             if(type === 'start') blockStartIndex = currentEditingIndex;
             else blockEndIndex = currentEditingIndex;
@@ -508,10 +570,15 @@
             if(blockStartIndex !== -1 && blockEndIndex !== -1 && blockStartIndex > blockEndIndex) {
                 alert("Start boundary must be before End."); resetBlockMarks();
             }
+            updateBlockStatusUI();
             renderView();
             closeInlineEditor();
         }
-        function resetBlockMarks() { blockStartIndex = -1; blockEndIndex = -1; }
+        
+        function resetBlockMarks() { 
+            blockStartIndex = -1; blockEndIndex = -1; 
+            updateBlockStatusUI(); 
+        }
 
         function replaceSelectedBlock() {
             if (blockStartIndex === -1 || blockEndIndex === -1) return alert("Mark boundaries first.");
