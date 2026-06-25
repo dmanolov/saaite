@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AssemblyAI JSON Transcription Editor v3.0</title>
+    <title>AssemblyAI JSON Transcription Editor v4.0</title>
     <style>
-        :root { --bg: #f8f9fa; --border: #ced4da; --primary: #0d6efd; --success: #198754; --warning: #ffc107; --danger: #dc3545; --tab-bg: #e9ecef; }
+        :root { --bg: #f8f9fa; --border: #ced4da; --primary: #0d6efd; --success: #198754; --warning: #ffc107; --danger: #dc3545; --info: #0dcaf0; --tab-bg: #e9ecef; }
         body { font-family: system-ui, -apple-system, sans-serif; max-width: 1200px; margin: 20px auto; padding: 0 20px; background: var(--bg); color: #212529; }
-        h1 { color: #2c3e50; border-bottom: 2px solid var(--border); padding-bottom: 10px; font-size: 24px; }
+        h1 { color: #2c3e50; border-bottom: 2px solid var(--border); padding-bottom: 10px; font-size: 24px; display: flex; justify-content: space-between; align-items: center; }
         
         .tabs { display: flex; border-bottom: 2px solid var(--primary); margin-bottom: 15px; }
         .tab-btn { padding: 10px 20px; cursor: pointer; background: var(--tab-bg); border: 1px solid var(--border); border-bottom: none; border-radius: 6px 6px 0 0; margin-right: 5px; font-weight: bold; color: #495057; }
@@ -22,13 +22,14 @@
         button { padding: 6px 12px; cursor: pointer; border: 1px solid transparent; border-radius: 4px; font-weight: 500; background: var(--primary); color: white; }
         button.btn-success { background: var(--success); }
         button.btn-danger { background: var(--danger); }
+        button.btn-info { background: var(--info); color: #000; }
         button:disabled { background: #6c757d; cursor: not-allowed; }
 
         #html-viewer { background: #fff; padding: 20px; border: 1px solid var(--border); border-radius: 4px; min-height: 400px; max-height: 600px; overflow-y: auto; line-height: 1.8; font-size: 16px; }
         
         /* Inline Editor Popover */
-        #inline-editor { position: absolute; background: white; border: 1px solid #333; padding: 10px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); display: none; z-index: 1000; }
-        .inline-controls { display: flex; gap: 5px; margin-top: 8px; }
+        #inline-editor { position: absolute; background: white; border: 1px solid #333; padding: 10px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); display: none; z-index: 1000; width: 340px; }
+        .inline-controls { display: flex; gap: 5px; margin-top: 8px; flex-wrap: wrap; }
 
         /* Confidence & Highlights */
         .word { cursor: pointer; border-radius: 3px; padding: 2px; transition: 0.2s; position: relative; }
@@ -39,13 +40,27 @@
         .mark-highlight { background-color: #cfe2ff; color: #084298; box-shadow: 0 0 0 2px #0d6efd; font-weight: bold; }
         .sub-highlight { background-color: #e0cffc; color: #520dc2; border-bottom: 2px solid #6f42c1; }
         
-        .block-unclear { display: block; margin: 20px 0; color: var(--danger); font-weight: bold; border-left: 4px solid var(--danger); padding-left: 10px; }
+        .added-text { color: var(--danger); font-weight: bold; margin: 0 4px; }
+        .segment { margin-bottom: 20px; }
+        .speaker-header { display: inline-block; background: #343a40; color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 0.85em; font-weight: bold; margin-bottom: 5px; }
         .dirty-warning { color: var(--danger); font-weight: bold; margin-left: 10px; display: none; }
+        
+        .block-start-mark { border-bottom: 3px solid var(--success); font-weight: bold; }
+        .block-end-mark { border-bottom: 3px solid var(--danger); font-weight: bold; }
+        .block-inner-mark { background-color: #f8d7da; }
+        
+        .speaker-filters { display: flex; gap: 15px; flex-wrap: wrap; border: 1px dashed var(--border); padding: 10px; border-radius: 4px; }
     </style>
 </head>
 <body>
 
-    <h1>AssemblyAI JSON Transcription Editor v3.0</h1>
+    <h1>
+        AssemblyAI JSON Transcription Editor v4.0
+        <div>
+            <button onclick="copyText()" class="btn-info">📋 Copy Text</button>
+            <button onclick="downloadText()" class="btn-success">💾 Download .txt</button>
+        </div>
+    </h1>
 
     <div class="tabs">
         <div class="tab-btn active" onclick="openTab('tab-load', this)">1. Load JSON</div>
@@ -69,23 +84,38 @@
 
     <div id="tab-view" class="tab-content">
         <div class="row">
-            <input type="checkbox" id="unclearItemCheck" onchange="renderView()">
-            <label>Replace low confidence with</label>
-            <input type="text" id="unclearItemText" value="[UNCLEAR - HH:MM:SS]">
-            <label>under</label>
-            <input type="number" id="confidenceLimit" value="0.5" step="0.1" max="1" onchange="renderView()">
+            <input type="checkbox" id="showSpeakerTimesCheck" onchange="renderView()">
+            <label><strong>Show Speaker Times & Segments</strong></label>
         </div>
         <div class="row">
-            <input type="checkbox" id="unclearBlockCheck" onchange="renderView()">
-            <label>Unclear blocks (sec) ></label>
-            <input type="number" id="blockSeconds" value="3.0" step="0.5" onchange="renderView()">
-            <label>replace with</label>
-            <input type="text" id="unclearBlockText" value="[UNCLEAR from HH:MM:SS to HH:MM:SS]" style="width:280px;">
+            <strong>Hide speaker:</strong>
+            <div id="speakerFiltersContainer" class="speaker-filters">
+                <!-- Checkboxes will be injected here -->
+                <em style="color:#6c757d; font-size: 0.9em;">Load JSON to see speakers</em>
+            </div>
+        </div>
+        <hr>
+        <div class="row">
+            <input type="checkbox" id="unclearItemCheck" onchange="renderView()">
+            <label>Add text</label>
+            <input type="text" id="unclearItemText" value="[UNCLEAR - HH:MM:SS]">
+            <label>after words with confidence lower than</label>
+            <input type="number" id="confidenceLimit" value="0.5" step="0.1" max="1" onchange="renderView()">
         </div>
         <div class="row">
             <input type="checkbox" id="markLowConfCheck" checked onchange="renderView()">
             <label>Mark confidence below</label>
             <input type="number" id="markLowConfLimit" value="0.9" step="0.1" onchange="renderView()">
+        </div>
+        <hr>
+        <div class="row">
+            <strong>Block Replacement:</strong>
+            <span style="font-size:0.9em; color:#6c757d;">(Mark start/end word via inline editor)</span>
+        </div>
+        <div class="row">
+            <label>Replace selected block with:</label>
+            <input type="text" id="blockReplaceText" value="[UNCLEAR from HH:MM:SS to HH:MM:SS]" style="width:300px;">
+            <button onclick="replaceSelectedBlock()" class="btn-danger">Replace Selected Block</button>
         </div>
     </div>
 
@@ -112,13 +142,18 @@
     <div id="html-viewer" oncontextmenu="return false;"></div>
 
     <div id="inline-editor">
-        <input type="text" id="editWordValue" style="width: 150px; font-size: 1.1em;">
+        <input type="text" id="editWordValue" style="width: 100%; font-size: 1.1em; margin-bottom:5px; box-sizing: border-box;">
         <div class="inline-controls">
+            <button onclick="insertTimeTag()" id="inlineTimeBtn" class="btn-info" title="Insert word's start time">[00:00:00]</button>
             <button onclick="applyInlineEdit()" class="btn-success">Save</button>
             <button onclick="deleteWord()" class="btn-danger">Del</button>
-            <button onclick="insertWord('before')" style="background:#6c757d"> +Before</button>
-            <button onclick="insertWord('after')" style="background:#6c757d"> +After</button>
-            <button onclick="closeInlineEditor()" style="background:#333">X</button>
+            <button onclick="insertWord('before')" style="background:#6c757d" title="Insert edited text before this word">+Before</button>
+            <button onclick="insertWord('after')" style="background:#6c757d" title="Insert edited text after this word">+After</button>
+            
+            <button onclick="toggleParagraph()" style="background:#0d6efd" title="Force a new paragraph here">¶ Para</button>
+            <button onclick="markBlockBoundary('start')" style="background:#198754" title="Set this word as Start of a Block">🚩 Start</button>
+            <button onclick="markBlockBoundary('end')" style="background:#dc3545" title="Set this word as End of a Block">🏁 End</button>
+            <button onclick="closeInlineEditor()" style="background:#333; margin-left:auto;">X</button>
         </div>
     </div>
 
@@ -127,7 +162,12 @@
         let historyStack = [];
         let redoStack = [];
         let isDirty = false;
+        
         let currentEditingIndex = -1;
+        let hiddenSpeakers = new Set();
+        
+        let blockStartIndex = -1;
+        let blockEndIndex = -1;
 
         // --- UTILS ---
         function formatTime(ms) {
@@ -145,11 +185,11 @@
         }
 
         function undo() {
-            if (historyStack.length) { redoStack.push(deepCopy(wordsData)); wordsData = historyStack.pop(); renderView(); }
+            if (historyStack.length) { redoStack.push(deepCopy(wordsData)); wordsData = historyStack.pop(); resetBlockMarks(); renderView(); }
         }
 
         function redo() {
-            if (redoStack.length) { historyStack.push(deepCopy(wordsData)); wordsData = redoStack.pop(); renderView(); }
+            if (redoStack.length) { historyStack.push(deepCopy(wordsData)); wordsData = redoStack.pop(); resetBlockMarks(); renderView(); }
         }
 
         // --- DATA ---
@@ -158,10 +198,35 @@
             try {
                 wordsData = JSON.parse(document.getElementById('jsonInput').value).words;
                 isDirty = false;
+                resetBlockMarks();
                 document.getElementById('dirtyWarning').style.display = 'none';
                 document.getElementById('wordCountInfo').innerText = "Words: " + wordsData.length;
+                buildSpeakerFilters();
                 renderView();
-            } catch (e) { alert("Invalid JSON"); }
+            } catch (e) { alert("Invalid JSON format"); }
+        }
+
+        function buildSpeakerFilters() {
+            const container = document.getElementById('speakerFiltersContainer');
+            container.innerHTML = '';
+            hiddenSpeakers.clear();
+            
+            let speakers = new Set();
+            wordsData.forEach(w => speakers.add(w.speaker || 'unknown'));
+            
+            speakers.forEach(spk => {
+                let lbl = document.createElement('label');
+                lbl.style.cursor = 'pointer';
+                lbl.innerHTML = `<input type="checkbox" onchange="toggleSpeakerHidden('${spk}', this.checked)"> ${spk}`;
+                container.appendChild(lbl);
+            });
+            if(speakers.size === 0) container.innerHTML = '<em style="color:#6c757d; font-size: 0.9em;">No speaker data found.</em>';
+        }
+
+        function toggleSpeakerHidden(speaker, isChecked) {
+            if(isChecked) hiddenSpeakers.add(speaker);
+            else hiddenSpeakers.delete(speaker);
+            renderView();
         }
 
         // --- INLINE EDITING ---
@@ -172,12 +237,14 @@
             currentEditingIndex = parseInt(wordEl.dataset.index);
             const editor = document.getElementById('inline-editor');
             const rect = wordEl.getBoundingClientRect();
+            const w = wordsData[currentEditingIndex];
             
             editor.style.display = 'block';
             editor.style.top = (window.scrollY + rect.bottom + 5) + 'px';
-            editor.style.left = rect.left + 'px';
+            editor.style.left = Math.min(rect.left, window.innerWidth - 350) + 'px'; // prevent off-screen
             
-            document.getElementById('editWordValue').value = wordsData[currentEditingIndex].text;
+            document.getElementById('editWordValue').value = w.text;
+            document.getElementById('inlineTimeBtn').innerText = `[${formatTime(w.start)}]`;
             document.getElementById('editWordValue').focus();
         });
 
@@ -194,6 +261,7 @@
         function deleteWord() {
             saveState();
             wordsData.splice(currentEditingIndex, 1);
+            resetBlockMarks(); // Indices shift, so reset marks to be safe
             closeInlineEditor();
             renderView();
         }
@@ -201,10 +269,76 @@
         function insertWord(dir) {
             saveState();
             const ref = wordsData[currentEditingIndex];
-            const newWord = { text: "...", start: ref.start, end: ref.end, confidence: 1.0 };
+            const newText = document.getElementById('editWordValue').value;
+            if(!newText.trim()) return alert("Enter text to insert");
+
+            const newWord = { 
+                text: newText, 
+                start: ref.start, 
+                end: ref.start, 
+                confidence: 1.0, 
+                speaker: "[ADDED]" 
+            };
             wordsData.splice(dir === 'before' ? currentEditingIndex : currentEditingIndex + 1, 0, newWord);
+            resetBlockMarks();
             renderView();
             closeInlineEditor();
+        }
+
+        function insertTimeTag() {
+            const btnText = document.getElementById('inlineTimeBtn').innerText;
+            const input = document.getElementById('editWordValue');
+            input.value += (input.value ? ' ' : '') + btnText;
+            input.focus();
+        }
+        
+        function toggleParagraph() {
+            saveState();
+            wordsData[currentEditingIndex].forceNewline = !wordsData[currentEditingIndex].forceNewline;
+            renderView();
+            closeInlineEditor();
+        }
+
+        // --- BLOCK MARKING ---
+        function markBlockBoundary(type) {
+            if(type === 'start') blockStartIndex = currentEditingIndex;
+            else blockEndIndex = currentEditingIndex;
+            
+            if(blockStartIndex !== -1 && blockEndIndex !== -1 && blockStartIndex > blockEndIndex) {
+                alert("Start must be before End. Resetting.");
+                resetBlockMarks();
+            }
+            renderView();
+            closeInlineEditor();
+        }
+
+        function resetBlockMarks() { blockStartIndex = -1; blockEndIndex = -1; }
+
+        function replaceSelectedBlock() {
+            if (blockStartIndex === -1 || blockEndIndex === -1) return alert("Please mark both Start and End via inline editor first.");
+            if (blockStartIndex > blockEndIndex) return alert("Invalid range.");
+            
+            saveState();
+            let sw = wordsData[blockStartIndex];
+            let ew = wordsData[blockEndIndex];
+            
+            // Replace first occurrence with start time, second with end time
+            let template = document.getElementById('blockReplaceText').value;
+            template = template.replace("HH:MM:SS", formatTime(sw.start));
+            template = template.replace("HH:MM:SS", formatTime(ew.end));
+            
+            const newWord = { 
+                text: template, 
+                start: sw.start, 
+                end: ew.end, 
+                confidence: 1.0, 
+                speaker: sw.speaker || "[ADDED]" 
+            };
+            
+            // Splice out the old block and insert the new merged element
+            wordsData.splice(blockStartIndex, blockEndIndex - blockStartIndex + 1, newWord);
+            resetBlockMarks();
+            renderView();
         }
 
         // --- GLOBAL REPLACEMENTS ---
@@ -238,6 +372,23 @@
             renderView();
         }
 
+        // --- EXPORT ---
+        function copyText() {
+            const text = document.getElementById('html-viewer').innerText;
+            navigator.clipboard.writeText(text).then(() => alert("Copied to clipboard!"));
+        }
+
+        function downloadText() {
+            const text = document.getElementById('html-viewer').innerText;
+            const blob = new Blob([text], { type: "text/plain" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "Transcript.txt";
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
         // --- RENDER ---
         function openTab(id, btn) {
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
@@ -251,51 +402,79 @@
             const container = document.getElementById('html-viewer');
             const confLimit = parseFloat(document.getElementById('confidenceLimit').value);
             const markConfLimit = parseFloat(document.getElementById('markLowConfLimit').value);
-            const blockMs = parseFloat(document.getElementById('blockSeconds').value) * 1000;
+            const showSpeakerTimes = document.getElementById('showSpeakerTimesCheck').checked;
             
             const findWord = document.getElementById('findInput').value.trim().toLowerCase();
             const subs = document.getElementById('substitutionsInput').value.toLowerCase().split('\n').map(l => l.split('>')[0].trim());
 
-            let html = "";
-            for (let i = 0; i < wordsData.length; i++) {
+            // Build Segments (paragraphs)
+            let segments = [];
+            let currSeg = [];
+            for(let i = 0; i < wordsData.length; i++) {
                 let w = wordsData[i];
-
-                // Gap Paragraph
-                if (i > 0 && (w.start - wordsData[i-1].end) > 1500) html += "<br><br>";
-
-                // Block Check
-                if (document.getElementById('unclearBlockCheck').checked && w.confidence < confLimit) {
-                    let j = i;
-                    while(j < wordsData.length && wordsData[j].confidence < confLimit) j++;
-                    if ((wordsData[j-1].end - w.start) >= blockMs) {
-                        let txt = document.getElementById('unclearBlockText').value
-                            .replace("HH:MM:SS", formatTime(w.start))
-                            .replace("HH:MM:SS", formatTime(wordsData[j-1].end));
-                        html += `<span class="block-unclear">${txt}</span>`;
-                        i = j - 1; continue;
+                if (currSeg.length === 0) {
+                    currSeg.push({word: w, index: i});
+                } else {
+                    let prevWord = currSeg[currSeg.length-1].word;
+                    if (w.speaker !== prevWord.speaker || w.forceNewline) {
+                        segments.push(currSeg);
+                        currSeg = [{word: w, index: i}];
+                    } else {
+                        currSeg.push({word: w, index: i});
                     }
                 }
-
-                // Unclear Item Check
-                if (document.getElementById('unclearItemCheck').checked && w.confidence < confLimit) {
-                    let txt = document.getElementById('unclearItemText').value.replace("HH:MM:SS", formatTime(w.start));
-                    html += ` <span class="word" data-index="${i}">${txt}</span> `;
-                    continue;
-                }
-
-                // Classes
-                let classes = ['word'];
-                let cleanWord = w.text.toLowerCase().replace(/[^\w]/g, '');
-                if (findWord && cleanWord === findWord) classes.push('mark-highlight');
-                else if (document.getElementById('markSubstitutionsCheck').checked && subs.includes(cleanWord)) classes.push('sub-highlight');
-                else if (document.getElementById('markLowConfCheck').checked && w.confidence < markConfLimit) {
-                    if (w.confidence < 0.3) classes.push('conf-01');
-                    else if (w.confidence < 0.6) classes.push('conf-05');
-                    else classes.push('conf-08');
-                }
-
-                html += `<span class="${classes.join(' ')}" data-index="${i}" title="${formatTime(w.start)} (conf: ${w.confidence.toFixed(2)})">${w.text}</span> `;
             }
+            if (currSeg.length > 0) segments.push(currSeg);
+
+            // Render Segments
+            let html = "";
+            segments.forEach(seg => {
+                let firstW = seg[0].word;
+                let lastW = seg[seg.length-1].word;
+                let spk = firstW.speaker || 'unknown';
+
+                html += `<p class="segment">`;
+                
+                // Segment Header
+                if (showSpeakerTimes) {
+                    html += `<span class="speaker-header">[${formatTime(firstW.start)} - ${formatTime(lastW.end)}] speaker ${spk}</span><br>`;
+                }
+
+                // Render Words if speaker not hidden
+                if (!hiddenSpeakers.has(spk)) {
+                    seg.forEach(item => {
+                        let w = item.word;
+                        let i = item.index;
+
+                        let classes = ['word'];
+                        let cleanWord = w.text.toLowerCase().replace(/[^\w]/g, '');
+                        
+                        // Highlights & Confidence
+                        if (findWord && cleanWord === findWord) classes.push('mark-highlight');
+                        else if (document.getElementById('markSubstitutionsCheck').checked && subs.includes(cleanWord)) classes.push('sub-highlight');
+                        else if (document.getElementById('markLowConfCheck').checked && w.confidence < markConfLimit) {
+                            if (w.confidence < 0.3) classes.push('conf-01');
+                            else if (w.confidence < 0.6) classes.push('conf-05');
+                            else classes.push('conf-08');
+                        }
+
+                        // Block Selection Marks
+                        if (i === blockStartIndex) classes.push('block-start-mark');
+                        if (i === blockEndIndex) classes.push('block-end-mark');
+                        if (blockStartIndex !== -1 && blockEndIndex !== -1 && i > blockStartIndex && i < blockEndIndex) classes.push('block-inner-mark');
+
+                        html += `<span class="${classes.join(' ')}" data-index="${i}" title="${formatTime(w.start)} (conf: ${w.confidence.toFixed(2)}, speaker: ${w.speaker || 'unknown'})">${w.text}</span> `;
+                        
+                        // Add Unclear Text AFTER low confidence word
+                        if (document.getElementById('unclearItemCheck').checked && w.confidence < confLimit) {
+                            let txt = document.getElementById('unclearItemText').value.replace("HH:MM:SS", formatTime(w.start));
+                            html += `<span class="added-text">${txt}</span> `;
+                        }
+                    });
+                }
+                html += `</p>`;
+            });
+            
             container.innerHTML = html;
         }
     </script>
