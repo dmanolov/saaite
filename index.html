@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AssemblyAI JSON Transcription Editor v4.0</title>
+    <title>AssemblyAI JSON Transcription Editor v5.0</title>
     <style>
         :root { --bg: #f8f9fa; --border: #ced4da; --primary: #0d6efd; --success: #198754; --warning: #ffc107; --danger: #dc3545; --info: #0dcaf0; --tab-bg: #e9ecef; }
         body { font-family: system-ui, -apple-system, sans-serif; max-width: 1200px; margin: 20px auto; padding: 0 20px; background: var(--bg); color: #212529; }
@@ -17,13 +17,18 @@
 
         .row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
         textarea { width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid var(--border); border-radius: 4px; font-family: monospace; }
-        input[type="text"], input[type="number"] { padding: 5px 8px; border: 1px solid var(--border); border-radius: 4px; }
+        input[type="text"], input[type="number"], select { padding: 6px 10px; border: 1px solid var(--border); border-radius: 4px; background: white; }
         
         button { padding: 6px 12px; cursor: pointer; border: 1px solid transparent; border-radius: 4px; font-weight: 500; background: var(--primary); color: white; }
         button.btn-success { background: var(--success); }
         button.btn-danger { background: var(--danger); }
         button.btn-info { background: var(--info); color: #000; }
         button:disabled { background: #6c757d; cursor: not-allowed; }
+
+        /* Audio Control Area */
+        .audio-panel { background: #e9ecef; border: 1px solid var(--border); border-radius: 6px; padding: 15px; margin-bottom: 15px; }
+        .audio-controls-row { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+        .audio-slider { flex-grow: 1; cursor: pointer; height: 8px; }
 
         #html-viewer { background: #fff; padding: 20px; border: 1px solid var(--border); border-radius: 4px; min-height: 400px; max-height: 600px; overflow-y: auto; line-height: 1.8; font-size: 16px; }
         
@@ -32,7 +37,7 @@
         .inline-controls { display: flex; gap: 5px; margin-top: 8px; flex-wrap: wrap; }
 
         /* Confidence & Highlights */
-        .word { cursor: pointer; border-radius: 3px; padding: 2px; transition: 0.2s; position: relative; }
+        .word { cursor: pointer; border-radius: 3px; padding: 2px; transition: 0.2s; position: relative; border: 1px solid transparent; }
         .word:hover { background-color: #e9ecef; }
         .conf-08 { background-color: #fff3cd; } 
         .conf-05 { background-color: #ffc107; } 
@@ -40,6 +45,9 @@
         .mark-highlight { background-color: #cfe2ff; color: #084298; box-shadow: 0 0 0 2px #0d6efd; font-weight: bold; }
         .sub-highlight { background-color: #e0cffc; color: #520dc2; border-bottom: 2px solid #6f42c1; }
         
+        /* Audio Tracking */
+        .audio-current-word { border: 2px dashed #0d6efd !important; background-color: #e0f2fe; font-weight: bold; }
+
         .added-text { color: var(--danger); font-weight: bold; margin: 0 4px; }
         .segment { margin-bottom: 20px; }
         .speaker-header { display: inline-block; background: #343a40; color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 0.85em; font-weight: bold; margin-bottom: 5px; }
@@ -50,12 +58,13 @@
         .block-inner-mark { background-color: #f8d7da; }
         
         .speaker-filters { display: flex; gap: 15px; flex-wrap: wrap; border: 1px dashed var(--border); padding: 10px; border-radius: 4px; }
+        .file-box { border: 1px dashed var(--primary); padding: 10px; border-radius: 4px; background: #f0f7ff; }
     </style>
 </head>
 <body>
 
     <h1>
-        AssemblyAI JSON Transcription Editor v4.0
+        AssemblyAI JSON Transcription Editor v5.0
         <div>
             <button onclick="copyText()" class="btn-info">📋 Copy Text</button>
             <button onclick="downloadText()" class="btn-success">💾 Download .txt</button>
@@ -63,19 +72,33 @@
     </h1>
 
     <div class="tabs">
-        <div class="tab-btn active" onclick="openTab('tab-load', this)">1. Load JSON</div>
+        <div class="tab-btn active" onclick="openTab('tab-load', this)">1. Load & Save</div>
         <div class="tab-btn" onclick="openTab('tab-view', this)">2. View & Filters</div>
         <div class="tab-btn" onclick="openTab('tab-replace', this)">3. Search & Replace</div>
     </div>
 
     <div id="tab-load" class="tab-content active">
-        <div class="row">
-            <strong>Paste AssemblyAI JSON:</strong>
+        <div class="row file-box">
+            <div>
+                <strong>Option A: Single File Picker</strong><br>
+                <label>JSON: </label><input type="file" id="jsonFilePick" accept=".json" onchange="handleSingleFile('json')">
+                <label style="margin-left:15px;">Audio: </label><input type="file" id="audioFilePick" accept="audio/*" onchange="handleSingleFile('audio')">
+            </div>
+            <div style="border-left: 2px solid var(--border); padding-left: 15px; margin-left:15px;">
+                <strong>Option B: Select Multiple Folder Files (Auto Group)</strong><br>
+                <input type="file" id="bulkFolderInput" multiple accept=".json,audio/*" onchange="handleBulkFiles()">
+                <select id="filePairSelect" onchange="loadSelectedPair()" style="margin-left:5px; display:none;"></select>
+            </div>
+        </div>
+
+        <div class="row" style="margin-top:15px;">
+            <strong>Raw JSON Input Buffer:</strong>
             <span id="dirtyWarning" class="dirty-warning">⚠️ Unsaved changes!</span>
         </div>
-        <textarea id="jsonInput" rows="3"></textarea>
+        <textarea id="jsonInput" rows="3" placeholder="JSON text will load here automatically..."></textarea>
+        
         <div class="row" style="margin-top:10px;">
-            <button onclick="loadJsonData()" class="btn-success">Load Data</button>
+            <button onclick="loadJsonData()" class="btn-success">Load Raw Buffer Data</button>
             <button onclick="undo()">⟲ Undo</button>
             <button onclick="redo()">⟳ Redo</button>
             <span id="wordCountInfo" style="margin-left:auto;">Words: 0</span>
@@ -90,7 +113,6 @@
         <div class="row">
             <strong>Hide speaker:</strong>
             <div id="speakerFiltersContainer" class="speaker-filters">
-                <!-- Checkboxes will be injected here -->
                 <em style="color:#6c757d; font-size: 0.9em;">Load JSON to see speakers</em>
             </div>
         </div>
@@ -139,6 +161,21 @@
         </div>
     </div>
 
+    <div class="audio-panel">
+        <audio id="audioEngine" style="display:none;"></audio>
+        <div class="audio-controls-row">
+            <button onclick="togglePlay()" id="playBtn" style="background:var(--success); min-width: 80px;">▶ Play</button>
+            <button onclick="skipTime(-30)">-30s</button>
+            <button onclick="skipTime(-5)">-5s</button>
+            <button onclick="skipTime(5)">+5s</button>
+            <button onclick="skipTime(30)">+30s</button>
+            <span id="audioTimeTracker" style="font-family:monospace; margin-left:10px;">00:00:00 / 00:00:00</span>
+        </div>
+        <div class="audio-controls-row">
+            <input type="range" id="audioSlider" class="audio-slider" value="0" min="0" step="0.1" oninput="handleSliderInput()" onchange="handleSliderChange()">
+        </div>
+    </div>
+
     <div id="html-viewer" oncontextmenu="return false;"></div>
 
     <div id="inline-editor">
@@ -169,12 +206,16 @@
         let blockStartIndex = -1;
         let blockEndIndex = -1;
 
+        // Audio State
+        const audio = document.getElementById('audioEngine');
+        let wasPlayingBeforeEdit = false;
+        let bulkFileMap = {};
+
         // --- UTILS ---
         function formatTime(ms) {
             let s = Math.floor(ms / 1000);
             return new Date(s * 1000).toISOString().substr(11, 8);
         }
-
         function deepCopy(arr) { return JSON.parse(JSON.stringify(arr)); }
 
         function saveState() {
@@ -187,12 +228,81 @@
         function undo() {
             if (historyStack.length) { redoStack.push(deepCopy(wordsData)); wordsData = historyStack.pop(); resetBlockMarks(); renderView(); }
         }
-
         function redo() {
             if (redoStack.length) { historyStack.push(deepCopy(wordsData)); wordsData = redoStack.pop(); resetBlockMarks(); renderView(); }
         }
 
-        // --- DATA ---
+        // --- FILE LOADING MECHANISMS ---
+        function handleSingleFile(type) {
+            if (type === 'json') {
+                const file = document.getElementById('jsonFilePick').files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('jsonInput').value = e.target.result;
+                    loadJsonData();
+                };
+                reader.readAsText(file);
+            } else if (type === 'audio') {
+                const file = document.getElementById('audioFilePick').files[0];
+                if (file) loadAudioSource(file);
+            }
+        }
+
+        function handleBulkFiles() {
+            const files = document.getElementById('bulkFolderInput').files;
+            bulkFileMap = {};
+            
+            for(let i=0; i<files.length; i++) {
+                let f = files[i];
+                let baseName = f.name.substring(0, f.name.lastIndexOf('.')) || f.name;
+                let ext = f.name.substring(f.name.lastIndexOf('.')).toLowerCase();
+                
+                if(!bulkFileMap[baseName]) bulkFileMap[baseName] = { json: null, audio: null };
+                if(ext === '.json') bulkFileMap[baseName].json = f;
+                else if(['.mp3', '.wav', '.m4a', '.ogg'].includes(ext)) bulkFileMap[baseName].audio = f;
+            }
+
+            const select = document.getElementById('filePairSelect');
+            select.innerHTML = '<option value="">-- Choose Loaded File Pair --</option>';
+            let count = 0;
+
+            for(let name in bulkFileMap) {
+                if(bulkFileMap[name].json) {
+                    let opt = document.createElement('option');
+                    opt.value = name;
+                    opt.innerText = name + (bulkFileMap[name].audio ? " (+Audio)" : " (No Audio)");
+                    select.appendChild(opt);
+                    count++;
+                }
+            }
+            if(count > 0) { select.style.display = 'inline-block'; }
+        }
+
+        function loadSelectedPair() {
+            const baseName = document.getElementById('filePairSelect').value;
+            if(!baseName || !bulkFileMap[baseName]) return;
+            
+            let pair = bulkFileMap[baseName];
+            
+            // Read JSON
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('jsonInput').value = e.target.result;
+                loadJsonData();
+            };
+            reader.readAsText(pair.json);
+
+            // Read Audio
+            if(pair.audio) loadAudioSource(pair.audio);
+            else audio.src = "";
+        }
+
+        function loadAudioSource(file) {
+            audio.src = URL.createObjectURL(file);
+            audio.load();
+        }
+
         function loadJsonData() {
             if (isDirty && !confirm("Lose unsaved changes?")) return;
             try {
@@ -210,7 +320,6 @@
             const container = document.getElementById('speakerFiltersContainer');
             container.innerHTML = '';
             hiddenSpeakers.clear();
-            
             let speakers = new Set();
             wordsData.forEach(w => speakers.add(w.speaker || 'unknown'));
             
@@ -220,7 +329,6 @@
                 lbl.innerHTML = `<input type="checkbox" onchange="toggleSpeakerHidden('${spk}', this.checked)"> ${spk}`;
                 container.appendChild(lbl);
             });
-            if(speakers.size === 0) container.innerHTML = '<em style="color:#6c757d; font-size: 0.9em;">No speaker data found.</em>';
         }
 
         function toggleSpeakerHidden(speaker, isChecked) {
@@ -229,11 +337,105 @@
             renderView();
         }
 
+        // --- AUDIO ENGINE LOGIC ---
+        function togglePlay() {
+            if(!audio.src) return;
+            if(audio.paused) audio.play();
+            else audio.pause();
+        }
+
+        audio.addEventListener('play', () => { document.getElementById('playBtn').innerText = "⏸ Pause"; });
+        audio.addEventListener('pause', () => { document.getElementById('playBtn').innerText = "▶ Play"; });
+        
+        audio.addEventListener('durationchange', () => {
+            document.getElementById('audioSlider').max = audio.duration;
+        });
+
+        audio.addEventListener('timeupdate', () => {
+            const cur = audio.currentTime;
+            const dur = audio.duration || 0;
+            document.getElementById('audioTimeTracker').innerText = formatTime(cur * 1000) + " / " + formatTime(dur * 1000);
+            
+            if(!isDraggingSlider) {
+                document.getElementById('audioSlider').value = cur;
+            }
+            syncWordHighlight(cur * 1000);
+        });
+
+        let isDraggingSlider = false;
+        function handleSliderInput() { isDraggingSlider = true; }
+        function handleSliderChange() {
+            audio.currentTime = document.getElementById('audioSlider').value;
+            isDraggingSlider = false;
+        }
+
+        function skipTime(secs) {
+            if(!audio.src) return;
+            audio.currentTime = Math.max(0, Math.min(audio.duration, audio.currentTime + secs));
+        }
+
+        function syncWordHighlight(timeMs) {
+            document.querySelectorAll('.word').forEach(el => el.classList.remove('audio-current-word'));
+            if (!wordsData.length) return;
+
+            let currentWordIndex = -1;
+            // Find perfect match or closest upcoming word
+            for(let i=0; i < wordsData.length; i++) {
+                if(timeMs >= wordsData[i].start && timeMs <= wordsData[i].end) {
+                    currentWordIndex = i; break;
+                }
+            }
+            if(currentWordIndex === -1) {
+                for(let i=0; i < wordsData.length; i++) {
+                    if(wordsData[i].start > timeMs) { currentWordIndex = Math.max(0, i-1); break; }
+                }
+            }
+            if(currentWordIndex === -1 && wordsData.length) currentWordIndex = wordsData.length - 1;
+
+            if(currentWordIndex !== -1) {
+                const activeEl = document.querySelector(`.word[data-index="${currentWordIndex}"]`);
+                if(activeEl) activeEl.classList.add('audio-current-word');
+            }
+        }
+
+        // Click Word to Seek Audio
+        document.getElementById('html-viewer').addEventListener('click', (e) => {
+            const wordEl = e.target.closest('.word');
+            if (!wordEl || e.detail === 2) return; // ignore double clicks
+            let idx = parseInt(wordEl.dataset.index);
+            if(audio.src && wordsData[idx]) {
+                audio.currentTime = wordsData[idx].start / 1000;
+                if(audio.paused) audio.play();
+            }
+        });
+
+        // --- KEYBOARD SHORTCUTS ---
+        window.addEventListener('keydown', (e) => {
+            // Disable global triggers if typing in an editor or search field
+            if(["INPUT", "TEXTAREA"].includes(document.activeElement.tagName)) return;
+
+            if(e.code === "Space") {
+                e.preventDefault(); togglePlay();
+            } else if(e.code === "ArrowLeft") {
+                e.preventDefault(); skipTime(-5);
+            } else if(e.code === "ArrowRight") {
+                e.preventDefault(); skipTime(5);
+            } else if(e.code === "ArrowUp") {
+                e.preventDefault(); skipTime(30);
+            } else if(e.code === "ArrowDown") {
+                e.preventDefault(); skipTime(-30);
+            }
+        });
+
         // --- INLINE EDITING ---
         document.getElementById('html-viewer').addEventListener('dblclick', (e) => {
             const wordEl = e.target.closest('.word');
             if (!wordEl) return;
             
+            // Auto Pause Audio
+            wasPlayingBeforeEdit = !audio.paused;
+            audio.pause();
+
             currentEditingIndex = parseInt(wordEl.dataset.index);
             const editor = document.getElementById('inline-editor');
             const rect = wordEl.getBoundingClientRect();
@@ -241,14 +443,17 @@
             
             editor.style.display = 'block';
             editor.style.top = (window.scrollY + rect.bottom + 5) + 'px';
-            editor.style.left = Math.min(rect.left, window.innerWidth - 350) + 'px'; // prevent off-screen
+            editor.style.left = Math.min(rect.left, window.innerWidth - 350) + 'px';
             
             document.getElementById('editWordValue').value = w.text;
             document.getElementById('inlineTimeBtn').innerText = `[${formatTime(w.start)}]`;
             document.getElementById('editWordValue').focus();
         });
 
-        function closeInlineEditor() { document.getElementById('inline-editor').style.display = 'none'; }
+        function closeInlineEditor() { 
+            document.getElementById('inline-editor').style.display = 'none'; 
+            if(wasPlayingBeforeEdit && audio.src) audio.play();
+        }
 
         function applyInlineEdit() {
             saveState();
@@ -261,7 +466,7 @@
         function deleteWord() {
             saveState();
             wordsData.splice(currentEditingIndex, 1);
-            resetBlockMarks(); // Indices shift, so reset marks to be safe
+            resetBlockMarks();
             closeInlineEditor();
             renderView();
         }
@@ -272,13 +477,7 @@
             const newText = document.getElementById('editWordValue').value;
             if(!newText.trim()) return alert("Enter text to insert");
 
-            const newWord = { 
-                text: newText, 
-                start: ref.start, 
-                end: ref.start, 
-                confidence: 1.0, 
-                speaker: "[ADDED]" 
-            };
+            const newWord = { text: newText, start: ref.start, end: ref.start, confidence: 1.0, speaker: "[ADDED]" };
             wordsData.splice(dir === 'before' ? currentEditingIndex : currentEditingIndex + 1, 0, newWord);
             resetBlockMarks();
             renderView();
@@ -305,37 +504,24 @@
             else blockEndIndex = currentEditingIndex;
             
             if(blockStartIndex !== -1 && blockEndIndex !== -1 && blockStartIndex > blockEndIndex) {
-                alert("Start must be before End. Resetting.");
-                resetBlockMarks();
+                alert("Start boundary must be before End."); resetBlockMarks();
             }
             renderView();
             closeInlineEditor();
         }
-
         function resetBlockMarks() { blockStartIndex = -1; blockEndIndex = -1; }
 
         function replaceSelectedBlock() {
-            if (blockStartIndex === -1 || blockEndIndex === -1) return alert("Please mark both Start and End via inline editor first.");
-            if (blockStartIndex > blockEndIndex) return alert("Invalid range.");
-            
+            if (blockStartIndex === -1 || blockEndIndex === -1) return alert("Mark boundaries via double-click first.");
             saveState();
             let sw = wordsData[blockStartIndex];
             let ew = wordsData[blockEndIndex];
             
-            // Replace first occurrence with start time, second with end time
-            let template = document.getElementById('blockReplaceText').value;
-            template = template.replace("HH:MM:SS", formatTime(sw.start));
-            template = template.replace("HH:MM:SS", formatTime(ew.end));
+            let template = document.getElementById('blockReplaceText').value
+                .replace("HH:MM:SS", formatTime(sw.start))
+                .replace("HH:MM:SS", formatTime(ew.end));
             
-            const newWord = { 
-                text: template, 
-                start: sw.start, 
-                end: ew.end, 
-                confidence: 1.0, 
-                speaker: sw.speaker || "[ADDED]" 
-            };
-            
-            // Splice out the old block and insert the new merged element
+            const newWord = { text: template, start: sw.start, end: ew.end, confidence: 1.0, speaker: sw.speaker || "[ADDED]" };
             wordsData.splice(blockStartIndex, blockEndIndex - blockStartIndex + 1, newWord);
             resetBlockMarks();
             renderView();
@@ -348,7 +534,6 @@
             if (!findText) return;
             saveState();
             const caseInsensitive = document.getElementById('caseInsensitive').checked;
-            
             wordsData.forEach(w => {
                 let match = caseInsensitive ? w.text.toLowerCase() === findText.toLowerCase() : w.text === findText;
                 if (match) { w.text = replText; w.confidence = 1.0; }
@@ -377,15 +562,12 @@
             const text = document.getElementById('html-viewer').innerText;
             navigator.clipboard.writeText(text).then(() => alert("Copied to clipboard!"));
         }
-
         function downloadText() {
             const text = document.getElementById('html-viewer').innerText;
             const blob = new Blob([text], { type: "text/plain" });
             const url = URL.createObjectURL(blob);
             const a = document.createElement("a");
-            a.href = url;
-            a.download = "Transcript.txt";
-            a.click();
+            a.href = url; a.download = "Transcript.txt"; a.click();
             URL.revokeObjectURL(url);
         }
 
@@ -407,7 +589,6 @@
             const findWord = document.getElementById('findInput').value.trim().toLowerCase();
             const subs = document.getElementById('substitutionsInput').value.toLowerCase().split('\n').map(l => l.split('>')[0].trim());
 
-            // Build Segments (paragraphs)
             let segments = [];
             let currSeg = [];
             for(let i = 0; i < wordsData.length; i++) {
@@ -417,8 +598,7 @@
                 } else {
                     let prevWord = currSeg[currSeg.length-1].word;
                     if (w.speaker !== prevWord.speaker || w.forceNewline) {
-                        segments.push(currSeg);
-                        currSeg = [{word: w, index: i}];
+                        segments.push(currSeg); currSeg = [{word: w, index: i}];
                     } else {
                         currSeg.push({word: w, index: i});
                     }
@@ -426,7 +606,6 @@
             }
             if (currSeg.length > 0) segments.push(currSeg);
 
-            // Render Segments
             let html = "";
             segments.forEach(seg => {
                 let firstW = seg[0].word;
@@ -434,22 +613,17 @@
                 let spk = firstW.speaker || 'unknown';
 
                 html += `<p class="segment">`;
-                
-                // Segment Header
                 if (showSpeakerTimes) {
                     html += `<span class="speaker-header">[${formatTime(firstW.start)} - ${formatTime(lastW.end)}] speaker ${spk}</span><br>`;
                 }
 
-                // Render Words if speaker not hidden
                 if (!hiddenSpeakers.has(spk)) {
                     seg.forEach(item => {
                         let w = item.word;
                         let i = item.index;
-
                         let classes = ['word'];
                         let cleanWord = w.text.toLowerCase().replace(/[^\w]/g, '');
                         
-                        // Highlights & Confidence
                         if (findWord && cleanWord === findWord) classes.push('mark-highlight');
                         else if (document.getElementById('markSubstitutionsCheck').checked && subs.includes(cleanWord)) classes.push('sub-highlight');
                         else if (document.getElementById('markLowConfCheck').checked && w.confidence < markConfLimit) {
@@ -458,14 +632,12 @@
                             else classes.push('conf-08');
                         }
 
-                        // Block Selection Marks
                         if (i === blockStartIndex) classes.push('block-start-mark');
                         if (i === blockEndIndex) classes.push('block-end-mark');
                         if (blockStartIndex !== -1 && blockEndIndex !== -1 && i > blockStartIndex && i < blockEndIndex) classes.push('block-inner-mark');
 
-                        html += `<span class="${classes.join(' ')}" data-index="${i}" title="${formatTime(w.start)} (conf: ${w.confidence.toFixed(2)}, speaker: ${w.speaker || 'unknown'})">${w.text}</span> `;
+                        html += `<span class="${classes.join(' ')}" data-index="${i}" title="${formatTime(w.start)} (conf: ${w.confidence.toFixed(2)}, speaker: ${spk})">${w.text}</span> `;
                         
-                        // Add Unclear Text AFTER low confidence word
                         if (document.getElementById('unclearItemCheck').checked && w.confidence < confLimit) {
                             let txt = document.getElementById('unclearItemText').value.replace("HH:MM:SS", formatTime(w.start));
                             html += `<span class="added-text">${txt}</span> `;
@@ -476,6 +648,7 @@
             });
             
             container.innerHTML = html;
+            syncWordHighlight(audio.currentTime * 1000);
         }
     </script>
 </body>
