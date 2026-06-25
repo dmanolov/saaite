@@ -3,41 +3,48 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AssemblyAI JSON Transcription Editor v5.0</title>
+    <title>AssemblyAI JSON Transcription Editor v6.0</title>
     <style>
         :root { --bg: #f8f9fa; --border: #ced4da; --primary: #0d6efd; --success: #198754; --warning: #ffc107; --danger: #dc3545; --info: #0dcaf0; --tab-bg: #e9ecef; }
-        body { font-family: system-ui, -apple-system, sans-serif; max-width: 1200px; margin: 20px auto; padding: 0 20px; background: var(--bg); color: #212529; }
-        h1 { color: #2c3e50; border-bottom: 2px solid var(--border); padding-bottom: 10px; font-size: 24px; display: flex; justify-content: space-between; align-items: center; }
+        body { font-family: system-ui, -apple-system, sans-serif; max-width: 1300px; margin: 15px auto; padding: 0 15px; background: var(--bg); color: #212529; }
         
-        .tabs { display: flex; border-bottom: 2px solid var(--primary); margin-bottom: 15px; }
-        .tab-btn { padding: 10px 20px; cursor: pointer; background: var(--tab-bg); border: 1px solid var(--border); border-bottom: none; border-radius: 6px 6px 0 0; margin-right: 5px; font-weight: bold; color: #495057; }
+        /* Layout Header + Tabs Optimization */
+        .top-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--primary); flex-wrap: wrap; margin-bottom: 15px; gap: 10px; }
+        .top-header h1 { margin: 0; padding-bottom: 5px; font-size: 22px; color: #2c3e50; }
+        
+        .tabs { display: flex; margin-bottom: -2px; }
+        .tab-btn { padding: 8px 16px; cursor: pointer; background: var(--tab-bg); border: 1px solid var(--border); border-bottom: none; border-radius: 6px 6px 0 0; margin-right: 5px; font-weight: bold; color: #495057; font-size: 14px; }
         .tab-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
-        .tab-content { display: none; background: #fff; padding: 15px; border-radius: 0 0 6px 6px; border: 1px solid var(--border); border-top: none; margin-bottom: 20px; }
+        
+        .tab-content { display: none; background: #fff; padding: 15px; border-radius: 0 0 6px 6px; border: 1px solid var(--border); margin-bottom: 15px; }
         .tab-content.active { display: block; }
 
         .row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
-        textarea { width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid var(--border); border-radius: 4px; font-family: monospace; }
-        input[type="text"], input[type="number"], select { padding: 6px 10px; border: 1px solid var(--border); border-radius: 4px; background: white; }
+        .flex-cols { display: flex; gap: 20px; flex-wrap: wrap; }
+        .col { flex: 1; min-width: 300px; }
         
-        button { padding: 6px 12px; cursor: pointer; border: 1px solid transparent; border-radius: 4px; font-weight: 500; background: var(--primary); color: white; }
+        textarea { width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid var(--border); border-radius: 4px; font-family: monospace; }
+        input[type="text"], input[type="number"], select { padding: 5px 10px; border: 1px solid var(--border); border-radius: 4px; background: white; }
+        
+        button { padding: 5px 12px; cursor: pointer; border: 1px solid transparent; border-radius: 4px; font-weight: 500; background: var(--primary); color: white; }
         button.btn-success { background: var(--success); }
         button.btn-danger { background: var(--danger); }
         button.btn-info { background: var(--info); color: #000; }
         button:disabled { background: #6c757d; cursor: not-allowed; }
 
-        /* Audio Control Area */
-        .audio-panel { background: #e9ecef; border: 1px solid var(--border); border-radius: 6px; padding: 15px; margin-bottom: 15px; }
-        .audio-controls-row { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
-        .audio-slider { flex-grow: 1; cursor: pointer; height: 8px; }
+        /* Compact Audio Panel */
+        .audio-panel { background: #e9ecef; border: 1px solid var(--border); border-radius: 6px; padding: 10px 15px; margin-bottom: 15px; }
+        .audio-controls-row { display: flex; align-items: center; gap: 10px; width: 100%; flex-wrap: wrap; }
+        .audio-slider { flex-grow: 1; cursor: pointer; height: 8px; min-width: 150px; }
 
-        #html-viewer { background: #fff; padding: 20px; border: 1px solid var(--border); border-radius: 4px; min-height: 400px; max-height: 600px; overflow-y: auto; line-height: 1.8; font-size: 16px; }
+        #html-viewer { background: #fff; padding: 20px; border: 1px solid var(--border); border-radius: 4px; min-height: 450px; max-height: 650px; overflow-y: auto; line-height: 1.8; font-size: 16px; }
         
         /* Inline Editor Popover */
         #inline-editor { position: absolute; background: white; border: 1px solid #333; padding: 10px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); display: none; z-index: 1000; width: 340px; }
         .inline-controls { display: flex; gap: 5px; margin-top: 8px; flex-wrap: wrap; }
 
-        /* Confidence & Highlights */
-        .word { cursor: pointer; border-radius: 3px; padding: 2px; transition: 0.2s; position: relative; border: 1px solid transparent; }
+        /* Stable Words Layout (Anti-flicker) */
+        .word { cursor: pointer; border-radius: 3px; padding: 1px 2px; transition: 0.1s; position: relative; border: 2px solid transparent; display: inline-block; }
         .word:hover { background-color: #e9ecef; }
         .conf-08 { background-color: #fff3cd; } 
         .conf-05 { background-color: #ffc107; } 
@@ -45,63 +52,64 @@
         .mark-highlight { background-color: #cfe2ff; color: #084298; box-shadow: 0 0 0 2px #0d6efd; font-weight: bold; }
         .sub-highlight { background-color: #e0cffc; color: #520dc2; border-bottom: 2px solid #6f42c1; }
         
-        /* Audio Tracking */
+        /* Audio Tracking - Changes color/style but NOT size */
         .audio-current-word { border: 2px dashed #0d6efd !important; background-color: #e0f2fe; font-weight: bold; }
 
         .added-text { color: var(--danger); font-weight: bold; margin: 0 4px; }
-        .segment { margin-bottom: 20px; }
-        .speaker-header { display: inline-block; background: #343a40; color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 0.85em; font-weight: bold; margin-bottom: 5px; }
+        .segment { margin-bottom: 15px; }
+        .speaker-header { display: inline-block; background: #343a40; color: #fff; padding: 1px 6px; border-radius: 4px; font-size: 0.8em; font-weight: bold; margin-bottom: 3px; }
         .dirty-warning { color: var(--danger); font-weight: bold; margin-left: 10px; display: none; }
         
-        .block-start-mark { border-bottom: 3px solid var(--success); font-weight: bold; }
-        .block-end-mark { border-bottom: 3px solid var(--danger); font-weight: bold; }
+        .block-start-mark { border-bottom: 3px solid var(--success) !important; font-weight: bold; }
+        .block-end-mark { border-bottom: 3px solid var(--danger) !important; font-weight: bold; }
         .block-inner-mark { background-color: #f8d7da; }
         
-        .speaker-filters { display: flex; gap: 15px; flex-wrap: wrap; border: 1px dashed var(--border); padding: 10px; border-radius: 4px; }
-        .file-box { border: 1px dashed var(--primary); padding: 10px; border-radius: 4px; background: #f0f7ff; }
+        .speaker-filters { display: inline-flex; gap: 10px; flex-wrap: wrap; border: 1px dashed var(--border); padding: 4px 8px; border-radius: 4px; background: #fff; }
+        .file-box { display: flex; gap: 20px; border: 1px dashed var(--primary); padding: 10px; border-radius: 4px; background: #f0f7ff; }
+        .file-col { flex: 1; display: flex; flex-direction: column; gap: 6px; min-width: 250px; }
     </style>
 </head>
 <body>
 
-    <h1>
-        AssemblyAI JSON Transcription Editor v5.0
-        <div>
-            <button onclick="copyText()" class="btn-info">📋 Copy Text</button>
-            <button onclick="downloadText()" class="btn-success">💾 Download .txt</button>
+    <div class="top-header">
+        <h1>AssemblyAI JSON Editor v6.0</h1>
+        <div class="tabs">
+            <div class="tab-btn active" onclick="openTab('tab-load', this)">1. Load & Save</div>
+            <div class="tab-btn" onclick="openTab('tab-view', this)">2. View & Filters</div>
+            <div class="tab-btn" onclick="openTab('tab-replace', this)">3. Search & Replace</div>
         </div>
-    </h1>
-
-    <div class="tabs">
-        <div class="tab-btn active" onclick="openTab('tab-load', this)">1. Load & Save</div>
-        <div class="tab-btn" onclick="openTab('tab-view', this)">2. View & Filters</div>
-        <div class="tab-btn" onclick="openTab('tab-replace', this)">3. Search & Replace</div>
     </div>
 
     <div id="tab-load" class="tab-content active">
-        <div class="row file-box">
-            <div>
-                <strong>Option A: Single File Picker</strong><br>
-                <label>JSON: </label><input type="file" id="jsonFilePick" accept=".json" onchange="handleSingleFile('json')">
-                <label style="margin-left:15px;">Audio: </label><input type="file" id="audioFilePick" accept="audio/*" onchange="handleSingleFile('audio')">
+        <div class="file-box">
+            <div class="file-col">
+                <strong>Open one:</strong>
+                <div class="row" style="margin:0;"><label style="width:50px;">JSON:</label><input type="file" id="jsonFilePick" accept=".json" onchange="handleSingleFile('json')"></div>
+                <div class="row" style="margin:0;"><label style="width:50px;">Audio:</label><input type="file" id="audioFilePick" accept="audio/*" onchange="handleSingleFile('audio')"></div>
             </div>
-            <div style="border-left: 2px solid var(--border); padding-left: 15px; margin-left:15px;">
-                <strong>Option B: Select Multiple Folder Files (Auto Group)</strong><br>
-                <input type="file" id="bulkFolderInput" multiple accept=".json,audio/*" onchange="handleBulkFiles()">
-                <select id="filePairSelect" onchange="loadSelectedPair()" style="margin-left:5px; display:none;"></select>
+            <div class="file-col" style="border-left: 2px solid var(--border); padding-left: 20px;">
+                <strong>Open many (Bulk Folder Load):</strong>
+                <div class="row" style="margin:0;">
+                    <input type="file" id="bulkFolderInput" multiple accept=".json,audio/*" onchange="handleBulkFiles()">
+                    <select id="filePairSelect" onchange="loadSelectedPair()" style="display:none; max-width:250px;"></select>
+                </div>
             </div>
         </div>
 
-        <div class="row" style="margin-top:15px;">
+        <div class="row" style="margin-top:12px;">
             <strong>Raw JSON Input Buffer:</strong>
             <span id="dirtyWarning" class="dirty-warning">⚠️ Unsaved changes!</span>
         </div>
-        <textarea id="jsonInput" rows="3" placeholder="JSON text will load here automatically..."></textarea>
+        <textarea id="jsonInput" rows="2" placeholder="JSON text will load here automatically..."></textarea>
         
-        <div class="row" style="margin-top:10px;">
+        <div class="row" style="margin-top:8px;">
             <button onclick="loadJsonData()" class="btn-success">Load Raw Buffer Data</button>
-            <button onclick="undo()">⟲ Undo</button>
-            <button onclick="redo()">⟳ Redo</button>
-            <span id="wordCountInfo" style="margin-left:auto;">Words: 0</span>
+            <span id="wordCountInfo" style="margin-left:auto; font-weight:bold;">Words: 0</span>
+        </div>
+        <hr style="border:0; border-top:1px solid var(--border); margin:12px 0;">
+        <div class="row">
+            <button onclick="copyText()" class="btn-info">📋 Copy Final Text</button>
+            <button onclick="downloadText()" class="btn-success">💾 Download .txt File</button>
         </div>
     </div>
 
@@ -109,70 +117,78 @@
         <div class="row">
             <input type="checkbox" id="showSpeakerTimesCheck" onchange="renderView()">
             <label><strong>Show Speaker Times & Segments</strong></label>
-        </div>
-        <div class="row">
-            <strong>Hide speaker:</strong>
+            
+            <span style="margin-left:15px; margin-right:5px;"><strong>Hide speaker:</strong></span>
             <div id="speakerFiltersContainer" class="speaker-filters">
-                <em style="color:#6c757d; font-size: 0.9em;">Load JSON to see speakers</em>
+                <em style="color:#6c757d; font-size: 0.85em;">Load JSON first</em>
             </div>
         </div>
-        <hr>
+        <hr style="border:0; border-top:1px solid var(--border); margin:10px 0;">
         <div class="row">
             <input type="checkbox" id="unclearItemCheck" onchange="renderView()">
             <label>Add text</label>
             <input type="text" id="unclearItemText" value="[UNCLEAR - HH:MM:SS]">
             <label>after words with confidence lower than</label>
-            <input type="number" id="confidenceLimit" value="0.5" step="0.1" max="1" onchange="renderView()">
+            <input type="number" id="confidenceLimit" value="0.5" step="0.1" max="1" style="width:50px;" onchange="renderView()">
         </div>
         <div class="row">
             <input type="checkbox" id="markLowConfCheck" checked onchange="renderView()">
             <label>Mark confidence below</label>
-            <input type="number" id="markLowConfLimit" value="0.9" step="0.1" onchange="renderView()">
+            <input type="number" id="markLowConfLimit" value="0.9" step="0.1" style="width:50px;" onchange="renderView()">
         </div>
-        <hr>
-        <div class="row">
-            <strong>Block Replacement:</strong>
-            <span style="font-size:0.9em; color:#6c757d;">(Mark start/end word via inline editor)</span>
-        </div>
+        <hr style="border:0; border-top:1px solid var(--border); margin:10px 0;">
         <div class="row">
             <label>Replace selected block with:</label>
-            <input type="text" id="blockReplaceText" value="[UNCLEAR from HH:MM:SS to HH:MM:SS]" style="width:300px;">
+            <input type="text" id="blockReplaceText" value="[UNCLEAR from HH:MM:SS to HH:MM:SS]" style="width:280px;">
             <button onclick="replaceSelectedBlock()" class="btn-danger">Replace Selected Block</button>
+            <span style="font-size:0.85em; color:#6c757d;">*(Mark start/end word via inline dbl-click editor)</span>
         </div>
     </div>
 
     <div id="tab-replace" class="tab-content">
-        <div class="row">
-            <label><strong>Quick Find:</strong></label>
-            <input type="text" id="findInput" placeholder="Mark this word..." oninput="renderView()">
-            <input type="checkbox" id="caseInsensitive" checked onchange="renderView()"> <label>Case Insensitive</label>
-        </div>
-        <div class="row">
-            <label>Replace with:</label>
-            <input type="text" id="replaceInput">
-            <button onclick="replaceFoundWords()" class="btn-danger">Replace All Matches</button>
-        </div>
-        <hr>
-        <div class="row"><strong>Bulk Dictionary (old > new):</strong></div>
-        <textarea id="substitutionsInput" rows="4" placeholder="wordA > wordB" oninput="renderView()"></textarea>
-        <div class="row">
-            <input type="checkbox" id="markSubstitutionsCheck" checked onchange="renderView()"> <label>Mark Dictionary Items (Violet)</label>
-            <button onclick="replaceAllSubstitutions()" class="btn-danger" style="margin-left:auto;">Run All Substitutions</button>
+        <div class="flex-cols">
+            <div class="col">
+                <div class="row"><strong>Quick Find & Replace:</strong></div>
+                <div class="row">
+                    <button onclick="undo()" title="Undo text changes">⟲ Undo</button>
+                    <button onclick="redo()" title="Redo text changes">⟳ Redo</button>
+                </div>
+                <div class="row" style="margin-top:10px;">
+                    <label style="width:80px;">Find:</label>
+                    <input type="text" id="findInput" placeholder="Mark word..." oninput="renderView()">
+                </div>
+                <div class="row">
+                    <label style="width:80px;"></label>
+                    <input type="checkbox" id="caseInsensitive" checked onchange="renderView()"> <label>Case Insensitive</label>
+                </div>
+                <div class="row">
+                    <label style="width:80px;">Replace:</label>
+                    <input type="text" id="replaceInput">
+                    <button onclick="replaceFoundWords()" class="btn-danger">Replace All</button>
+                </div>
+            </div>
+            
+            <div class="col" style="display:flex; flex-direction:column;">
+                <div class="row"><strong>Bulk Dictionary (old > new):</strong></div>
+                <textarea id="substitutionsInput" rows="7" placeholder="wordA > wordB&#10;wordC > wordD" oninput="renderView()" style="flex-grow:1; min-height:110px;"></textarea>
+                <div class="row" style="margin-top:5px;">
+                    <input type="checkbox" id="markSubstitutionsCheck" checked onchange="renderView()"> <label>Mark Dictionary Items (Violet)</label>
+                    <button onclick="replaceAllSubstitutions()" class="btn-danger" style="margin-left:auto;">Run Dictionary</button>
+                </div>
+            </div>
         </div>
     </div>
 
     <div class="audio-panel">
         <audio id="audioEngine" style="display:none;"></audio>
         <div class="audio-controls-row">
-            <button onclick="togglePlay()" id="playBtn" style="background:var(--success); min-width: 80px;">▶ Play</button>
+            <input type="range" id="audioSlider" class="audio-slider" value="0" min="0" step="0.1" oninput="handleSliderInput()" onchange="handleSliderChange()">
+            <button onclick="togglePlay()" id="playBtn" style="background:var(--success); min-width: 75px;">▶ Play</button>
             <button onclick="skipTime(-30)">-30s</button>
             <button onclick="skipTime(-5)">-5s</button>
             <button onclick="skipTime(5)">+5s</button>
             <button onclick="skipTime(30)">+30s</button>
-            <span id="audioTimeTracker" style="font-family:monospace; margin-left:10px;">00:00:00 / 00:00:00</span>
-        </div>
-        <div class="audio-controls-row">
-            <input type="range" id="audioSlider" class="audio-slider" value="0" min="0" step="0.1" oninput="handleSliderInput()" onchange="handleSliderChange()">
+            <span id="audioTimeTracker" style="font-family:monospace; font-weight:bold; font-size:14px; white-space:nowrap;">00:00:00 / 00:00:00</span>
         </div>
     </div>
 
@@ -206,7 +222,7 @@
         let blockStartIndex = -1;
         let blockEndIndex = -1;
 
-        // Audio State
+        // Audio Engine States
         const audio = document.getElementById('audioEngine');
         let wasPlayingBeforeEdit = false;
         let bulkFileMap = {};
@@ -232,7 +248,7 @@
             if (redoStack.length) { historyStack.push(deepCopy(wordsData)); wordsData = redoStack.pop(); resetBlockMarks(); renderView(); }
         }
 
-        // --- FILE LOADING MECHANISMS ---
+        // --- FILE PROCESSING ---
         function handleSingleFile(type) {
             if (type === 'json') {
                 const file = document.getElementById('jsonFilePick').files[0];
@@ -264,7 +280,7 @@
             }
 
             const select = document.getElementById('filePairSelect');
-            select.innerHTML = '<option value="">-- Choose Loaded File Pair --</option>';
+            select.innerHTML = '<option value="">-- Choose File Pair --</option>';
             let count = 0;
 
             for(let name in bulkFileMap) {
@@ -285,7 +301,6 @@
             
             let pair = bulkFileMap[baseName];
             
-            // Read JSON
             const reader = new FileReader();
             reader.onload = function(e) {
                 document.getElementById('jsonInput').value = e.target.result;
@@ -293,7 +308,6 @@
             };
             reader.readAsText(pair.json);
 
-            // Read Audio
             if(pair.audio) loadAudioSource(pair.audio);
             else audio.src = "";
         }
@@ -337,7 +351,7 @@
             renderView();
         }
 
-        // --- AUDIO ENGINE LOGIC ---
+        // --- AUDIO CONTROLS ---
         function togglePlay() {
             if(!audio.src) return;
             if(audio.paused) audio.play();
@@ -346,10 +360,7 @@
 
         audio.addEventListener('play', () => { document.getElementById('playBtn').innerText = "⏸ Pause"; });
         audio.addEventListener('pause', () => { document.getElementById('playBtn').innerText = "▶ Play"; });
-        
-        audio.addEventListener('durationchange', () => {
-            document.getElementById('audioSlider').max = audio.duration;
-        });
+        audio.addEventListener('durationchange', () => { document.getElementById('audioSlider').max = audio.duration; });
 
         audio.addEventListener('timeupdate', () => {
             const cur = audio.currentTime;
@@ -379,7 +390,6 @@
             if (!wordsData.length) return;
 
             let currentWordIndex = -1;
-            // Find perfect match or closest upcoming word
             for(let i=0; i < wordsData.length; i++) {
                 if(timeMs >= wordsData[i].start && timeMs <= wordsData[i].end) {
                     currentWordIndex = i; break;
@@ -398,10 +408,10 @@
             }
         }
 
-        // Click Word to Seek Audio
+        // Word Click Seeks Audio
         document.getElementById('html-viewer').addEventListener('click', (e) => {
             const wordEl = e.target.closest('.word');
-            if (!wordEl || e.detail === 2) return; // ignore double clicks
+            if (!wordEl || e.detail === 2) return;
             let idx = parseInt(wordEl.dataset.index);
             if(audio.src && wordsData[idx]) {
                 audio.currentTime = wordsData[idx].start / 1000;
@@ -409,30 +419,22 @@
             }
         });
 
-        // --- KEYBOARD SHORTCUTS ---
+        // --- KEYBOARD LISTENERS ---
         window.addEventListener('keydown', (e) => {
-            // Disable global triggers if typing in an editor or search field
             if(["INPUT", "TEXTAREA"].includes(document.activeElement.tagName)) return;
 
-            if(e.code === "Space") {
-                e.preventDefault(); togglePlay();
-            } else if(e.code === "ArrowLeft") {
-                e.preventDefault(); skipTime(-5);
-            } else if(e.code === "ArrowRight") {
-                e.preventDefault(); skipTime(5);
-            } else if(e.code === "ArrowUp") {
-                e.preventDefault(); skipTime(30);
-            } else if(e.code === "ArrowDown") {
-                e.preventDefault(); skipTime(-30);
-            }
+            if(e.code === "Space") { e.preventDefault(); togglePlay(); } 
+            else if(e.code === "ArrowLeft") { e.preventDefault(); skipTime(-5); } 
+            else if(e.code === "ArrowRight") { e.preventDefault(); skipTime(5); } 
+            else if(e.code === "ArrowUp") { e.preventDefault(); skipTime(30); } 
+            else if(e.code === "ArrowDown") { e.preventDefault(); skipTime(-30); }
         });
 
-        // --- INLINE EDITING ---
+        // --- INLINE POPOVER EDITOR ---
         document.getElementById('html-viewer').addEventListener('dblclick', (e) => {
             const wordEl = e.target.closest('.word');
             if (!wordEl) return;
             
-            // Auto Pause Audio
             wasPlayingBeforeEdit = !audio.paused;
             audio.pause();
 
@@ -475,9 +477,9 @@
             saveState();
             const ref = wordsData[currentEditingIndex];
             const newText = document.getElementById('editWordValue').value;
-            if(!newText.trim()) return alert("Enter text to insert");
+            if(!newText.trim()) return alert("Enter text");
 
-            const newWord = { text: newText, start: ref.start, end: ref.start, confidence: 1.0, speaker: "[ADDED]" };
+            const newWord = { text: newText, start: ref.start, end: ref.start, confidence: 1.0, speaker: ref.speaker || "[ADDED]" };
             wordsData.splice(dir === 'before' ? currentEditingIndex : currentEditingIndex + 1, 0, newWord);
             resetBlockMarks();
             renderView();
@@ -498,7 +500,7 @@
             closeInlineEditor();
         }
 
-        // --- BLOCK MARKING ---
+        // --- BLOCK MANAGEMENT ---
         function markBlockBoundary(type) {
             if(type === 'start') blockStartIndex = currentEditingIndex;
             else blockEndIndex = currentEditingIndex;
@@ -512,7 +514,7 @@
         function resetBlockMarks() { blockStartIndex = -1; blockEndIndex = -1; }
 
         function replaceSelectedBlock() {
-            if (blockStartIndex === -1 || blockEndIndex === -1) return alert("Mark boundaries via double-click first.");
+            if (blockStartIndex === -1 || blockEndIndex === -1) return alert("Mark boundaries first.");
             saveState();
             let sw = wordsData[blockStartIndex];
             let ew = wordsData[blockEndIndex];
@@ -527,7 +529,7 @@
             renderView();
         }
 
-        // --- GLOBAL REPLACEMENTS ---
+        // --- MASS TRANSLATIONS & REPLACEMENTS ---
         function replaceFoundWords() {
             const findText = document.getElementById('findInput').value.trim();
             const replText = document.getElementById('replaceInput').value;
@@ -557,7 +559,7 @@
             renderView();
         }
 
-        // --- EXPORT ---
+        // --- IMPORTS / EXPORTS ---
         function copyText() {
             const text = document.getElementById('html-viewer').innerText;
             navigator.clipboard.writeText(text).then(() => alert("Copied to clipboard!"));
@@ -571,7 +573,6 @@
             URL.revokeObjectURL(url);
         }
 
-        // --- RENDER ---
         function openTab(id, btn) {
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -579,6 +580,7 @@
             btn.classList.add('active');
         }
 
+        // --- RENDER COMPONENT ---
         function renderView() {
             if (!wordsData.length) return;
             const container = document.getElementById('html-viewer');
